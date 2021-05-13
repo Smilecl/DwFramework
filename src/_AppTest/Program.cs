@@ -1,57 +1,60 @@
 ﻿using System;
+using System.Net;
+using System.Net.Http;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using DwFramework.Core;
 using DwFramework.Core.Plugins;
 using DwFramework.Core.Extensions;
-using DwFramework.WebSocket;
 
-namespace _AppTest
+// 定义接口
+public interface ITestInterface
 {
-    class Program
+    void TestMethod(string str);
+}
+
+// 定义实现
+[Registerable]
+public class TestClass : ITestInterface
+{
+    // 要拦截的函数必须是virtual或override
+    public virtual void TestMethod(string str)
     {
-        static void Main(string[] args)
-        {
-            try
-            {
-                var host = new ServiceHost(EnvironmentType.Develop, "Config.json");
-                host.RegisterLog();
-                host.RegisterWebSocketService("WebSocket");
-                host.OnInitializing += p =>
-                {
-                    var service = p.GetWebSocketService();
-                    service.OnConnect += (c, a) =>
-                    {
-                        Console.WriteLine($"{c.ID}已连接");
-                    };
-                    service.OnSend += (c, a) =>
-                    {
-                        Console.WriteLine($"向{c.ID}消息：{System.Text.Encoding.UTF8.GetString(a.Data)}");
-                    };
-                    service.OnReceive += (c, a) =>
-                   {
-                       var s = System.Text.Encoding.UTF8.GetString(a.Data);
-                       Console.WriteLine($"收到{c.ID}发来的消息：{s}");
-                       if (s == "c") _ = c.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.Empty);
-                       //if (!s.EndsWith("\r\n\r\n")) return;
-                       //var data = new { A = "a", B = 123 }.ToJson();
-                       //var msg = $"HTTP/1.1 200 OK\r\nContent-Type:application/json;charset=UTF-8\r\nContent-Length:{data.Length}\r\nConnection:close\r\n\r\n{data}";
-                       //await service.SendAsync(c.ID, msg);
-                   };
-                    service.OnClose += (c, a) =>
-                    {
-                        Console.WriteLine($"{c.ID}已断开");
-                    };
-                    service.OnError += (c, a) =>
-                    {
-                        Console.WriteLine($"{c.ID} {a.Exception.Message}");
-                    };
-                };
-                host.Run();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            Console.Read();
-        }
+        Console.WriteLine($"TestClass:{str}");
     }
 }
+
+/// <summary>
+/// 构造拦截器
+/// 1.继承BaseInterceptor
+/// 2.重写OnCalling(CallInfo info)函数
+/// 3.重写OnCalled(CallInfo info)函数
+/// </summary>
+public class MyInterceptor : BaseInterceptor
+{
+    public override void OnCalling(CallInfo info)
+    {
+        Console.WriteLine("OnCalling");
+    }
+
+    public override void OnCalled(CallInfo info)
+    {
+        Console.WriteLine("OnCalled");
+    }
+}
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        var host = new ServiceHost();
+        host.RegisterInterceptors(typeof(MyInterceptor));
+        host.RegisterType<TestClass>().AddClassInterceptors(typeof(MyInterceptor));
+        host.OnInitialized += p =>
+        {
+            p.GetService<TestClass>().TestMethod("Hi");
+        };
+        await host.RunAsync();
+    }
+}
+

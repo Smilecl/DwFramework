@@ -16,8 +16,8 @@ configuration=Debug
 output=.
 mainVersion=""
 subVersion=""
-startYear=2020
-suffix=rc
+startYear=$(date +%Y)
+suffix=""
 
 file=${@: -1}
 for i; do
@@ -78,17 +78,15 @@ if [[ $offset -lt 0 ]]; then
     exit 5
 fi
 
-if [[ "$suffix"x == ""x ]]; then
-    echo "后缀不可用!"
-    exit 5
-fi
-
 # 计算时间戳版本号
 start=$(date -j -f %Y-%m-%dT%H:%M:%S $startYear-01-01T00:00:00 +%s)
 current=$(date +%s)
 timestamp=$(expr $current - $start)
 week=$(expr $timestamp / 604800)
-buildVersion=$mainVersion.$subVersion.$week-$suffix.$(expr $(expr $timestamp % 604800) / 60)
+if [[ "$suffix"x != ""x ]]; then
+    suffix=-$suffix.$(expr $(expr $timestamp % 604800) / 60)
+fi
+buildVersion=$mainVersion.$subVersion.$week$suffix
 sed -i "" "s/\(<BuildVersion>\)[^<]*\(<\)/\1$buildVersion\2/g" $file
 
 # 构建
